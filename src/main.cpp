@@ -3,6 +3,7 @@
 #include <ModbusMaster.h>
 #include <ESP8266WiFi.h>
 #include "settingsPZEM.h"
+#include <ArduinoJson.h>
 
 
 #include <SoftwareSerial.h>  //  ( NODEMCU ESP8266 )
@@ -25,6 +26,10 @@ void setup()
   Serial.println("Start PZEM serial");
   node.begin(1, pzem);
   Serial.println("Start PZEM"); // 1 = ID MODBUS
+  
+
+
+  
 
   //  timerTask1 = timer.setInterval(1000, updateBlynk);
 }
@@ -70,6 +75,20 @@ void loop()
   Serial.println(PR_PF);
   
   Serial.println("====================================================");
+
+  StaticJsonDocument<200> doc;
+  
+  doc["Voltage"] = U_PR;
+  doc["Current"] = I_PR;
+  doc["Power"] = P_PR;
+  doc["Energy"] = PPR;
+  doc["Frequency"] = PR_F;
+
+  serializeJsonPretty(doc, Serial);
+
+  
+
+
 
   delay(1000);
 }
