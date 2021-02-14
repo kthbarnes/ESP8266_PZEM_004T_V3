@@ -18,11 +18,11 @@ double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF, PR_alarm; // PZEM registers
 uint8_t result;
 uint16_t data[6];
 
-const char *ssid = "BARNES";
-const char *password = "123MISS456";
+const char *ssid = "";
+const char *password = "";
 
-const char *mqttServer = "35.192.157.47"; 
-const int mqttPort = 1883;
+const char *mqttServer = "35.192.157.47"; //mqtt server IP
+const int mqttPort = 1883;     // Mqtt port number
 const char *mqttUser = "";
 const char *mqttPassword = "";
 
@@ -124,6 +124,7 @@ void loop()
   JSONbuffer["Power"] = P_PR;
   JSONbuffer["Energy"] = PPR;
   JSONbuffer["Frequency"] = PR_F;
+  JSONbuffer["Power Factor"] = PR_PF;
 
   serializeJsonPretty(JSONbuffer, Serial); // print json on serial monitor
   Serial.println("");
@@ -142,5 +143,5 @@ void loop()
     Serial.println("Error sending message");
   }
 
-  delay(1000);
+  delay(10000);
 }
