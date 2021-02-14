@@ -22,7 +22,7 @@ const char *ssid = "";
 const char *password = "";
 
 const char *mqttServer = "35.192.157.47"; //mqtt server IP
-const int mqttPort = 1883;     // Mqtt port number
+const int mqttPort = 1883;                // Mqtt port number
 const char *mqttUser = "";
 const char *mqttPassword = "";
 
@@ -40,7 +40,6 @@ void setup()
 
   WiFi.begin(ssid, password);
 
-
   // wifi connection
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -50,8 +49,6 @@ void setup()
   Serial.println("Connected to the WiFi network");
 
   client.setServer(mqttServer, mqttPort);
-
-
   // mqtt connection
   while (!client.connected())
   {
@@ -70,12 +67,55 @@ void setup()
       delay(2000);
     }
   }
+}
 
-  
+void reconnect_mqtt()
+{
+  client.setServer(mqttServer, mqttPort);
+  while (!client.connected())
+  {
+    Serial.println("Connecting to MQTT...");
+
+    if (client.connect("ESP32Client", mqttUser, mqttPassword))
+    {
+
+      Serial.println("connected");
+    }
+    else
+    {
+
+      Serial.print("failed with state ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+}
+
+void reconnect_wifi()
+{
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to the WiFi network");
 }
 
 void loop()
 {
+  if (!client.connected())
+  {
+    // If we're not, attempt to reconnect to MQTT Broker
+    reconnect_mqtt();
+  }
+  
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    // If we're not, attempt to reconnect to MQTT Broker
+    reconnect_wifi();
+  }
+  
   // read calulated values from PZEM
   result = node.readInputRegisters(0x0000, 10);
   if (result == node.ku8MBSuccess)
@@ -88,7 +128,7 @@ void loop()
     PR_PF = (node.getResponseBuffer(0x08) / 100.0f);
     PR_alarm = (node.getResponseBuffer(0x09));
   }
-  
+
   // print values on serial monitor
   Serial.print("Voltage: ");
   Serial.print(U_PR); // V
@@ -114,7 +154,7 @@ void loop()
   Serial.println(PR_PF);
 
   Serial.println("====================================================");
-  
+
   // convert values to JSON format so that we can send a single json file to the broker
 
   StaticJsonDocument<200> JSONbuffer;
