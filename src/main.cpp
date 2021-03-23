@@ -18,11 +18,19 @@ double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF, PR_alarm; // PZEM registers
 uint8_t result;
 uint16_t data[6];
 
+int analogPin = A0;
+float Vo = 0;
+float Vin = 0;
+float Vr1 = 0;
+float Iin = 0;
+float Pin = 0;
+float Vinit = 0;
+
 const char *ssid = "";
 const char *password = "";
 
 const char *mqttServer = "35.192.157.47"; //mqtt server IP
-const int mqttPort = 1883;     // Mqtt port number
+const int mqttPort = 1883;                // Mqtt port number
 const char *mqttUser = "";
 const char *mqttPassword = "";
 
@@ -40,7 +48,6 @@ void setup()
 
   WiFi.begin(ssid, password);
 
-
   // wifi connection
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -50,8 +57,6 @@ void setup()
   Serial.println("Connected to the WiFi network");
 
   client.setServer(mqttServer, mqttPort);
-
-
   // mqtt connection
   while (!client.connected())
   {
@@ -70,12 +75,55 @@ void setup()
       delay(2000);
     }
   }
+}
 
-  
+void reconnect_mqtt()
+{
+  client.setServer(mqttServer, mqttPort);
+  while (!client.connected())
+  {
+    Serial.println("Connecting to MQTT...");
+
+    if (client.connect("ESP32Client", mqttUser, mqttPassword))
+    {
+
+      Serial.println("connected");
+    }
+    else
+    {
+
+      Serial.print("failed with state ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+}
+
+void reconnect_wifi()
+{
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to the WiFi network");
 }
 
 void loop()
 {
+  if (!client.connected())
+  {
+    // If we're not, attempt to reconnect to MQTT Broker
+    reconnect_mqtt();
+  }
+  
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    // If we're not, attempt to reconnect to MQTT Broker
+    reconnect_wifi();
+  }
+  
   // read calulated values from PZEM
   result = node.readInputRegisters(0x0000, 10);
   if (result == node.ku8MBSuccess)
@@ -88,43 +136,24 @@ void loop()
     PR_PF = (node.getResponseBuffer(0x08) / 100.0f);
     PR_alarm = (node.getResponseBuffer(0x09));
   }
-  
-  // print values on serial monitor
-  Serial.print("Voltage: ");
-  Serial.print(U_PR); // V
-  Serial.println(" V");
-
-  Serial.print("Current: ");
-  Serial.print(I_PR, 3); //  A
-  Serial.println(" A");
-
-  Serial.print("Power: ");
-  Serial.print(P_PR); //  W
-  Serial.println(" W");
-
-  Serial.print("Energy: ");
-  Serial.print(PPR, 3); // kWh
-  Serial.println(" KWh");
-
-  Serial.print("Frequency: ");
-  Serial.print(PR_F); // Hz
-  Serial.println(" Hz");
-
-  Serial.print("Power Factor: ");
-  Serial.println(PR_PF);
-
-  Serial.println("====================================================");
+   
+  Vinit = analogRead(analogPin);
+  Vo = Vinit * (3.3 / 1023.0);
+  Vin = Vo * 7.1;
+  Vr1 = Vin - Vo;
+  Iin = Vr1 / 180;
+  Pin = Vin * Iin;
   
   // convert values to JSON format so that we can send a single json file to the broker
 
   StaticJsonDocument<200> JSONbuffer;
-
+  JSONbuffer["Energy"] = PPR;
+  JSONbuffer["Power"] = P_PR;
   JSONbuffer["Voltage"] = U_PR;
   JSONbuffer["Current"] = I_PR;
-  JSONbuffer["Power"] = P_PR;
-  JSONbuffer["Energy"] = PPR;
-  JSONbuffer["Frequency"] = PR_F;
-  JSONbuffer["Power Factor"] = PR_PF;
+  JSONbuffer["Pin"] = Pin;
+
+
 
   serializeJsonPretty(JSONbuffer, Serial); // print json on serial monitor
   Serial.println("");
